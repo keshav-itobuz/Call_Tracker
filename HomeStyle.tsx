@@ -67,6 +67,30 @@ const HomeStyle = StyleSheet.create({
     color: '#6b7280',
     fontFamily: 'monospace',
   },
+  clearButton: {
+    color: '#dc2626',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  fileCard: {
+    backgroundColor: '#f9fafb',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#059669',
+  },
+  fileName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  fileDetails: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
   emptyText: {
     textAlign: 'center',
     color: '#9ca3af',

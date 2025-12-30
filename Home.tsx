@@ -8,6 +8,8 @@ import {
   Platform,
   PermissionsAndroid,
   Modal,
+  NativeModules,
+  NativeEventEmitter,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import RNFS from 'react-native-fs';
@@ -17,6 +19,8 @@ import HomeStyle from './HomeStyle';
 
 // Default Android recording location
 const DEFAULT_RECORDING_PATH = '/storage/emulated/0/Recordings';
+
+const { CallDetectionModule } = NativeModules;
 
 export function Home() {
   const [watchDirectory, setWatchDirectory] = useState<string | null>(null);
@@ -29,11 +33,32 @@ export function Home() {
     '/storage/emulated/0',
   );
   const [browserFolders, setBrowserFolders] = useState<string[]>([]);
+  const [lastCallEndTime, setLastCallEndTime] = useState<number>(0);
 
   useEffect(() => {
     initializeApp();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android' || !CallDetectionModule) return;
+
+    const eventEmitter = new NativeEventEmitter(CallDetectionModule);
+    const subscription = eventEmitter.addListener('CallEnded', () => {
+      console.log('Call ended, scanning for recordings...');
+      setLastCallEndTime(Date.now());
+      setTimeout(() => {
+        scanForRecordings();
+      }, 2000);
+    });
+
+    CallDetectionModule.startListening();
+
+    return () => {
+      subscription.remove();
+      CallDetectionModule.stopListening();
+    };
+  }, [watchDirectory]);
 
   const initializeApp = async () => {
     // Request permissions
@@ -60,40 +85,35 @@ export function Home() {
 
     try {
       const apiLevel = Platform.Version;
+      const permissions: Array<
+        (typeof PermissionsAndroid.PERMISSIONS)[keyof typeof PermissionsAndroid.PERMISSIONS]
+      > = [PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE];
 
       if (apiLevel >= 33) {
-        // Android 13+ - Request READ_MEDIA_AUDIO
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO,
-          {
-            title: 'Audio Files Access',
-            message: 'App needs access to audio files to track recordings',
-            buttonPositive: 'Allow',
-          },
-        );
-        setHasPermissions(granted === PermissionsAndroid.RESULTS.GRANTED);
-      } else if (apiLevel >= 30) {
-        // Android 11+ - May need MANAGE_EXTERNAL_STORAGE for full access
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-          {
-            title: 'Storage Access',
-            message: 'App needs access to storage to track recordings',
-            buttonPositive: 'Allow',
-          },
-        );
-        setHasPermissions(granted === PermissionsAndroid.RESULTS.GRANTED);
+        permissions.push(PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO);
       } else {
-        // Android 10 and below
-        const granted = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-        ]);
-        setHasPermissions(
-          granted[PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE] ===
-            PermissionsAndroid.RESULTS.GRANTED,
-        );
+        permissions.push(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE);
+        if (apiLevel < 30) {
+          permissions.push(
+            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          );
+        }
       }
+
+      const granted = await PermissionsAndroid.requestMultiple(permissions);
+
+      const hasStoragePermission =
+        apiLevel >= 33
+          ? granted[PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO] ===
+            PermissionsAndroid.RESULTS.GRANTED
+          : granted[PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE] ===
+            PermissionsAndroid.RESULTS.GRANTED;
+
+      const hasPhonePermission =
+        granted[PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE] ===
+        PermissionsAndroid.RESULTS.GRANTED;
+
+      setHasPermissions(hasStoragePermission && hasPhonePermission);
     } catch (err) {
       console.error('Permission error:', err);
       setHasPermissions(false);
@@ -167,9 +187,25 @@ export function Home() {
     }
   };
 
-  const scanNow = async () => {
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const formatTime = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString();
+  };
+
+  const scanForRecordings = async () => {
     if (!watchDirectory) {
-      Alert.alert('No Directory', 'Please select a directory to watch first');
+      console.log('No watch directory set');
+      return;
+    }
+
+    if (isScanning) {
+      console.log('Already scanning, skipping...');
       return;
     }
 
@@ -182,17 +218,14 @@ export function Home() {
       if (newFiles.length > 0) {
         setDetectedFiles(prev => [...newFiles, ...prev]);
         Alert.alert(
-          'New Recordings Found',
-          `Detected ${newFiles.length} new recording(s)`,
+          'Recording Detected',
+          `Found ${newFiles.length} new recording(s) after call`,
           [{ text: 'OK' }],
         );
-      } else {
-        Alert.alert('No New Files', 'No new recordings detected');
       }
     } catch (error: any) {
       console.error('Scan error:', error);
       setIsScanning(false);
-      Alert.alert('Scan Error', error.message || 'Failed to scan directory');
     }
   };
 
@@ -202,13 +235,21 @@ export function Home() {
         <View style={HomeStyle.header}>
           <Text style={HomeStyle.title}>Call Recording Tracker</Text>
           <Text style={HomeStyle.subtitle}>
-            {hasPermissions ? '✓ Permissions Granted' : '✗ Permissions Needed'}
+            {hasPermissions ? '✓ Auto-Tracking Active' : '✗ Permissions Needed'}
           </Text>
+          {lastCallEndTime > 0 && (
+            <Text style={HomeStyle.subtitle}>
+              Last checked: {new Date(lastCallEndTime).toLocaleTimeString()}
+            </Text>
+          )}
         </View>
 
         {/* Directory Selection */}
         <View style={HomeStyle.section}>
           <Text style={HomeStyle.sectionTitle}>Watch Directory</Text>
+          <Text style={HomeStyle.infoText}>
+            Automatically scans for recordings after each call
+          </Text>
           <TouchableOpacity
             style={HomeStyle.button}
             onPress={selectDirectory}
@@ -225,19 +266,32 @@ export function Home() {
           )}
         </View>
 
-        {/* Scan Controls */}
-        <View style={HomeStyle.section}>
-          <Text style={HomeStyle.sectionTitle}>Scan Controls</Text>
-          <TouchableOpacity
-            style={[HomeStyle.button, HomeStyle.scanButton]}
-            onPress={scanNow}
-            disabled={!watchDirectory || isScanning}
-          >
-            <Text style={HomeStyle.buttonText}>
-              {isScanning ? 'Scanning...' : 'Scan Now'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {/* Recently Detected Recordings */}
+        {detectedFiles.length > 0 && (
+          <View style={HomeStyle.section}>
+            <View style={HomeStyle.sectionHeader}>
+              <Text style={HomeStyle.sectionTitle}>
+                Recent Recordings ({detectedFiles.length})
+              </Text>
+              <TouchableOpacity onPress={() => setDetectedFiles([])}>
+                <Text style={HomeStyle.clearButton}>Clear</Text>
+              </TouchableOpacity>
+            </View>
+            {detectedFiles.slice(0, 5).map((file, index) => (
+              <View key={`${file.uri}-${index}`} style={HomeStyle.fileCard}>
+                <Text style={HomeStyle.fileName} numberOfLines={1}>
+                  {file.name}
+                </Text>
+                <Text style={HomeStyle.fileDetails}>
+                  Size: {formatFileSize(file.size)}
+                </Text>
+                <Text style={HomeStyle.fileDetails}>
+                  Detected: {formatTime(file.detected)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
       {/* Directory Selection Modal */}
