@@ -8,16 +8,44 @@ import {
   PermissionsAndroid,
   Platform,
 } from 'react-native';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CallLog } from './src/types';
 import { HomeStyle } from './HomeStyle';
+import { uploadToS3 } from './src/uploadToS3';
 
 const { CallLogModule } = NativeModules;
+const LAST_SYNC_KEY = '@CallTracker:lastSyncTimestamp';
 
 export default function Home() {
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [loading, setLoading] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
+
+  useEffect(() => {
+    loadLastSyncTime();
+  }, []);
+
+  const loadLastSyncTime = async () => {
+    try {
+      const savedTime = await AsyncStorage.getItem(LAST_SYNC_KEY);
+      if (savedTime) {
+        setLastSyncTime(parseInt(savedTime, 10));
+      }
+    } catch (error) {
+      console.error('Failed to load last sync time:', error);
+    }
+  };
+
+  const saveLastSyncTime = async (timestamp: number) => {
+    try {
+      await AsyncStorage.setItem(LAST_SYNC_KEY, timestamp.toString());
+      setLastSyncTime(timestamp);
+    } catch (error) {
+      console.error('Failed to save last sync time:', error);
+    }
+  };
 
   const requestCallLogPermission = async () => {
     if (Platform.OS !== 'android') {
@@ -56,9 +84,25 @@ export default function Home() {
       }
 
       const logs = await CallLogModule.getCallLogs(100);
-      setCallLogs(logs);
 
-      Alert.alert('Success', `Fetched ${logs.length} call logs`);
+      // Filter logs to only show those after last sync
+      const currentTime = Date.now();
+      const newLogs = lastSyncTime
+        ? logs.filter((log: CallLog) => log.timestamp > lastSyncTime)
+        : logs;
+
+      // Update state with new logs only
+      setCallLogs(newLogs);
+
+      // Save current time as last sync
+      await saveLastSyncTime(currentTime);
+
+      await uploadToS3(newLogs);
+
+      Alert.alert(
+        'Success',
+        `Found ${newLogs.length} new call logs since last sync`,
+      );
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to fetch call logs');
       console.error('Call log error:', error);
@@ -124,6 +168,11 @@ export default function Home() {
     <SafeAreaView style={HomeStyle.container}>
       <View style={HomeStyle.header}>
         <Text style={HomeStyle.title}>Call Tracker</Text>
+        {lastSyncTime && (
+          <Text style={HomeStyle.lastSyncText}>
+            Last sync: {formatDate(lastSyncTime)}
+          </Text>
+        )}
         <TouchableOpacity
           style={[
             HomeStyle.syncButton,
@@ -139,13 +188,15 @@ export default function Home() {
       </View>
 
       <View style={HomeStyle.stats}>
-        <Text style={HomeStyle.statsText}>Total Calls: {callLogs.length}</Text>
+        <Text style={HomeStyle.statsText}>New Calls: {callLogs.length}</Text>
       </View>
 
       {callLogs.length === 0 ? (
         <View style={HomeStyle.emptyState}>
           <Text style={HomeStyle.emptyStateText}>
-            No call logs yet. Tap "Sync Call Logs" to fetch your call history.
+            {lastSyncTime
+              ? 'No new call logs since last sync. Tap "Sync Call Logs" to check again.'
+              : 'No call logs yet. Tap "Sync Call Logs" to fetch your call history.'}
           </Text>
         </View>
       ) : (

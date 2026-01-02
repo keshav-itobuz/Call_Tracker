@@ -17,6 +17,11 @@ export const HomeStyle = StyleSheet.create({
     color: '#333',
     marginBottom: 12,
   },
+  lastSyncText: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+  },
   syncButton: {
     backgroundColor: '#2196F3',
     padding: 14,
