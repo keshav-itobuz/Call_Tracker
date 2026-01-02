@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CallLog } from './src/types';
 import { HomeStyle } from './HomeStyle';
-import { uploadToS3 } from './src/uploadToS3';
 
 const { CallLogModule } = NativeModules;
 const LAST_SYNC_KEY = '@CallTracker:lastSyncTimestamp';
@@ -96,8 +95,6 @@ export default function Home() {
 
       // Save current time as last sync
       await saveLastSyncTime(currentTime);
-
-      await uploadToS3(newLogs);
 
       Alert.alert(
         'Success',
