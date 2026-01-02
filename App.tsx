@@ -1,6 +1,6 @@
 import { StatusBar, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Home } from './Home';
+import Home from './Home';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
