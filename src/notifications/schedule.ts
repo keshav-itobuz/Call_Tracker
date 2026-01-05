@@ -1,6 +1,6 @@
 import notifee, { TriggerType } from '@notifee/react-native';
 
-const FIXED_HOURS = [12, 16, 18, 20]; // 11am, 4pm, 6pm, 8pm
+const FIXED_HOURS = [12, 16, 18, 20];
 
 export async function scheduleDailyNotifications() {
   try {
@@ -9,11 +9,10 @@ export async function scheduleDailyNotifications() {
     console.log('Cancelled all existing notifications');
 
     const now = new Date();
-    console.log('Current time:', now.toLocaleString());
 
     for (const hour of FIXED_HOURS) {
       const triggerDate = new Date();
-      triggerDate.setHours(hour, 8, 0, 0); // Set to exactly on the hour
+      triggerDate.setHours(hour, 0, 0, 0); // Set to exactly on the hour
 
       if (triggerDate <= now) {
         triggerDate.setDate(triggerDate.getDate() + 1);
@@ -40,10 +39,6 @@ export async function scheduleDailyNotifications() {
             allowWhileIdle: true,
           },
         },
-      );
-
-      console.log(
-        `Scheduled notification ${notificationId} for ${triggerDate.toLocaleString()}`,
       );
     }
 
