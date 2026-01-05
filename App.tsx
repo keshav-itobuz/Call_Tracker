@@ -10,10 +10,10 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import Home from './Home';
+import Home from './src/screens/Home';
 import { useEffect, useRef, useState } from 'react';
-import { createNotificationChannels } from './src/notifications/channels';
-import { scheduleDailyNotifications } from './src/notifications/schedule';
+import { createNotificationChannels } from './src/services/notifications/channels';
+import { scheduleDailyNotifications } from './src/services/notifications/schedule';
 import notifee, { EventType } from '@notifee/react-native';
 
 function App() {

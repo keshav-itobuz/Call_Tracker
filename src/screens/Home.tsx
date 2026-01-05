@@ -14,9 +14,9 @@ import React, {
 } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CallLog as CallLogType } from './src/types';
+import { CallLog as CallLogType } from '../types';
 import { HomeStyle } from './HomeStyle';
-import CallLog from './src/components/CallLog';
+import CallLog from '../components/CallLog';
 
 const { CallLogModule } = NativeModules;
 const LAST_SYNC_KEY = '@CallTracker:lastSyncTimestamp';

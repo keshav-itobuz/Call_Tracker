@@ -6,7 +6,6 @@ export async function scheduleDailyNotifications() {
   try {
     // Cancel all existing notifications first
     await notifee.cancelAllNotifications();
-    console.log('Cancelled all existing notifications');
 
     const now = new Date();
 
@@ -41,17 +40,6 @@ export async function scheduleDailyNotifications() {
         },
       );
     }
-
-    // Get all scheduled notifications to verify
-    const notifications = await notifee.getTriggerNotifications();
-    console.log(`Total scheduled notifications: ${notifications.length}`);
-    notifications.forEach(n => {
-      const trigger = n.trigger as any;
-      const timestamp = trigger.timestamp
-        ? new Date(trigger.timestamp).toLocaleString()
-        : 'unknown';
-      console.log(`- ${n.notification.id}: ${timestamp}`);
-    });
   } catch (error) {
     console.error('Error scheduling notifications:', error);
     throw error;
