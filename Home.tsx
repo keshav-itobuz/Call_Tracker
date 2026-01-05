@@ -5,26 +5,47 @@ import {
   FlatList,
   Alert,
   NativeModules,
-  PermissionsAndroid,
-  Platform,
 } from 'react-native';
-import React, { useState, useEffect } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useImperativeHandle,
+  forwardRef,
+} from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CallLog } from './src/types';
+import { CallLog as CallLogType } from './src/types';
 import { HomeStyle } from './HomeStyle';
+import CallLog from './src/components/CallLog';
 
 const { CallLogModule } = NativeModules;
 const LAST_SYNC_KEY = '@CallTracker:lastSyncTimestamp';
 
-export default function Home() {
-  const [callLogs, setCallLogs] = useState<CallLog[]>([]);
+const Home = forwardRef((_props, ref) => {
+  const [callLogs, setCallLogs] = useState<CallLogType[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
 
   useEffect(() => {
     loadLastSyncTime();
+    checkAndTriggerSync();
   }, []);
+
+  const checkAndTriggerSync = async () => {
+    try {
+      const shouldSync = await AsyncStorage.getItem('@CallTracker:shouldSync');
+      if (shouldSync === 'true') {
+        console.log('Auto-triggering sync from notification press');
+        await AsyncStorage.removeItem('@CallTracker:shouldSync');
+        // Wait a bit for UI to be ready
+        setTimeout(() => {
+          syncCallLogs();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Failed to check sync flag:', error);
+    }
+  };
 
   const loadLastSyncTime = async () => {
     try {
@@ -46,48 +67,15 @@ export default function Home() {
     }
   };
 
-  const requestCallLogPermission = async () => {
-    if (Platform.OS !== 'android') {
-      Alert.alert('Error', 'This feature is only available on Android');
-      return false;
-    }
-
-    try {
-      const granted = await PermissionsAndroid.requestMultiple([
-        PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
-        PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
-      ]);
-
-      return (
-        granted['android.permission.READ_CALL_LOG'] ===
-        PermissionsAndroid.RESULTS.GRANTED
-      );
-    } catch (err) {
-      console.warn(err);
-      return false;
-    }
-  };
-
   const syncCallLogs = async () => {
     setLoading(true);
     try {
-      const hasPermission = await requestCallLogPermission();
-
-      if (!hasPermission) {
-        Alert.alert(
-          'Permission Required',
-          'Please grant call log permission to view call history',
-        );
-        setLoading(false);
-        return;
-      }
-
       const logs = await CallLogModule.getCallLogs(100);
 
       // Filter logs to only show those after last sync
       const currentTime = Date.now();
       const newLogs = lastSyncTime
-        ? logs.filter((log: CallLog) => log.timestamp > lastSyncTime)
+        ? logs.filter((log: CallLogType) => log.timestamp > lastSyncTime)
         : logs;
 
       // Update state with new logs only
@@ -95,71 +83,22 @@ export default function Home() {
 
       // Save current time as last sync
       await saveLastSyncTime(currentTime);
-
-      Alert.alert(
-        'Success',
-        `Found ${newLogs.length} new call logs since last sync`,
-      );
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to fetch call logs');
-      console.error('Call log error:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  // Expose sync function to parent via ref
+  useImperativeHandle(ref, () => ({
+    triggerSync: syncCallLogs,
+  }));
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
     return date.toLocaleString();
   };
-
-  const getCallTypeColor = (type: string) => {
-    switch (type) {
-      case 'INCOMING':
-        return '#4CAF50';
-      case 'OUTGOING':
-        return '#2196F3';
-      case 'MISSED':
-        return '#F44336';
-      case 'REJECTED':
-        return '#FF9800';
-      default:
-        return '#757575';
-    }
-  };
-
-  const renderCallLog = ({ item }: { item: CallLog }) => (
-    <View style={HomeStyle.callLogItem}>
-      <View style={HomeStyle.callLogHeader}>
-        <Text style={HomeStyle.phoneNumber}>
-          {item.name || item.phoneNumber}
-        </Text>
-        <View
-          style={[
-            HomeStyle.typeBadge,
-            { backgroundColor: getCallTypeColor(item.type) },
-          ]}
-        >
-          <Text style={HomeStyle.typeBadgeText}>{item.type}</Text>
-        </View>
-      </View>
-      {item.name && (
-        <Text style={HomeStyle.phoneNumberSecondary}>{item.phoneNumber}</Text>
-      )}
-      <View style={HomeStyle.callLogFooter}>
-        <Text style={HomeStyle.timestamp}>{formatDate(item.timestamp)}</Text>
-        <Text style={HomeStyle.duration}>
-          Duration: {formatDuration(item.duration)}
-        </Text>
-      </View>
-    </View>
-  );
 
   return (
     <SafeAreaView style={HomeStyle.container}>
@@ -199,7 +138,7 @@ export default function Home() {
       ) : (
         <FlatList
           data={callLogs}
-          renderItem={renderCallLog}
+          renderItem={({ item }) => <CallLog item={item} />}
           keyExtractor={(item, index) =>
             `${item.phoneNumber}-${item.timestamp}-${index}`
           }
@@ -208,4 +147,6 @@ export default function Home() {
       )}
     </SafeAreaView>
   );
-}
+});
+
+export default Home;
