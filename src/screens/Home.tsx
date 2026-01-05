@@ -51,7 +51,7 @@ const Home = forwardRef((_props, ref) => {
     try {
       const savedTime = await AsyncStorage.getItem(LAST_SYNC_KEY);
       if (savedTime) {
-        setLastSyncTime(parseInt(savedTime, 10));
+        setLastSyncTime(Number.parseInt(savedTime, 10));
       }
     } catch (error) {
       console.error('Failed to load last sync time:', error);

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Home from './src/screens/Home';
+import Login from './src/screens/Login';
 import { useEffect, useRef, useState } from 'react';
 import { createNotificationChannels } from './src/services/notifications/channels';
 import { scheduleDailyNotifications } from './src/services/notifications/schedule';
@@ -19,6 +20,7 @@ import notifee, { EventType } from '@notifee/react-native';
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
   const homeRef = useRef<any>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [hasPermissions, setHasPermissions] = useState(false);
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
 
@@ -76,7 +78,9 @@ function App() {
   };
 
   useEffect(() => {
-    requestPermissions();
+    if (isLoggedIn) {
+      requestPermissions();
+    }
 
     // Handle notification press when app is in foreground or background
     const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
@@ -93,7 +97,15 @@ function App() {
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [isLoggedIn]);
+
+  if (!isLoggedIn) {
+    return (
+      <SafeAreaProvider>
+        <Login onLoginSuccess={() => setIsLoggedIn(true)} />
+      </SafeAreaProvider>
+    );
+  }
 
   if (isCheckingPermissions) {
     return (
