@@ -52,6 +52,30 @@ export const LoginStyle = StyleSheet.create({
     borderColor: '#F44336',
     borderWidth: 2,
   },
+  passwordInputWrapper: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  passwordInput: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 14,
+    paddingRight: 50,
+    fontSize: 16,
+    color: '#333',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    padding: 8,
+  },
+  eyeIcon: {
+    fontSize: 20,
+  },
   loginButton: {
     backgroundColor: '#2196F3',
     padding: 16,

@@ -17,11 +17,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CallLog as CallLogType } from '../types';
 import { HomeStyle } from './HomeStyle';
 import CallLog from '../components/CallLog';
+import { useUser } from '../context/UserContext';
 
 const { CallLogModule } = NativeModules;
 const LAST_SYNC_KEY = '@CallTracker:lastSyncTimestamp';
 
 const Home = forwardRef((_props, ref) => {
+  const { user, logout } = useUser();
   const [callLogs, setCallLogs] = useState<CallLogType[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
@@ -72,7 +74,6 @@ const Home = forwardRef((_props, ref) => {
     try {
       const logs = await CallLogModule.getCallLogs(100);
 
-      // Filter logs to only show those after last sync
       const currentTime = Date.now();
       const newLogs = lastSyncTime
         ? logs.filter((log: CallLogType) => log.timestamp > lastSyncTime)
@@ -100,10 +101,37 @@ const Home = forwardRef((_props, ref) => {
     return date.toLocaleString();
   };
 
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: () => logout(),
+      },
+    ]);
+  };
+
   return (
     <SafeAreaView style={HomeStyle.container}>
       <View style={HomeStyle.header}>
-        <Text style={HomeStyle.title}>Call Tracker</Text>
+        <View style={HomeStyle.headerTop}>
+          <View>
+            <Text style={HomeStyle.title}>Call Tracker</Text>
+            {user?.name && (
+              <Text style={HomeStyle.welcomeText}>Welcome, {user.name}</Text>
+            )}
+          </View>
+          <TouchableOpacity
+            style={HomeStyle.logoutButton}
+            onPress={handleLogout}
+          >
+            <Text style={HomeStyle.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
         {lastSyncTime && (
           <Text style={HomeStyle.lastSyncText}>
             Last sync: {formatDate(lastSyncTime)}

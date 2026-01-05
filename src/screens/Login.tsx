@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Icon from 'react-native-vector-icons/FontAwesome';
 import {
   View,
   Text,
@@ -14,17 +15,15 @@ import { useForm } from 'react-hook-form';
 import { LoginStyle } from './LoginStyle';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useUser } from '../context/UserContext';
 
 interface LoginFormData {
   email: string;
   password: string;
 }
 
-interface LoginProps {
-  onLoginSuccess: () => void;
-}
-
-const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+const Login: React.FC = () => {
+  const { setUserData } = useUser();
   const {
     register,
     setValue,
@@ -37,6 +36,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     },
   });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const emailShakeAnimation = useRef(new Animated.Value(0)).current;
   const passwordShakeAnimation = useRef(new Animated.Value(0)).current;
 
@@ -104,13 +104,22 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       );
       const userId = response.data.user.id;
       const userName = response.data.user.name;
+      const userEmail = response.data.user.email;
       const token = response.data.token;
       const refreshToken = response.data.refreshToken;
+
+      // Store tokens
       await AsyncStorage.setItem('token', token);
       await AsyncStorage.setItem('refreshToken', refreshToken);
-      onLoginSuccess();
+
+      // Set user in context (this will trigger navigation)
+      setUserData({
+        id: userId,
+        email: userEmail,
+        name: userName,
+      });
     } catch (error) {
-      Alert.alert('Error', 'Login failed. Please try again.');
+      Alert.alert('Error', 'Invalid email or password');
       console.error('Login failed:', error);
     } finally {
       setLoading(false);
@@ -162,18 +171,32 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   transform: [{ translateX: passwordShakeAnimation }],
                 }}
               >
-                <TextInput
-                  style={[
-                    LoginStyle.input,
-                    errors.password && LoginStyle.inputError,
-                  ]}
-                  placeholder="Enter your password"
-                  placeholderTextColor="#999"
-                  onChangeText={text => setValue('password', text)}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
+                <View style={LoginStyle.passwordInputWrapper}>
+                  <TextInput
+                    style={[
+                      LoginStyle.passwordInput,
+                      errors.password && LoginStyle.inputError,
+                    ]}
+                    placeholder="Enter your password"
+                    placeholderTextColor="#999"
+                    onChangeText={text => setValue('password', text)}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <TouchableOpacity
+                    style={LoginStyle.eyeButton}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <Text style={LoginStyle.eyeIcon}>
+                      <Icon
+                        name={showPassword ? 'eye' : 'eye-slash'}
+                        size={20}
+                        color="#999"
+                      />
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </Animated.View>
               <Text style={LoginStyle.errorText}>
                 {errors.password?.message || ' '}
