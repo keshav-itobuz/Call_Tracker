@@ -1,10 +1,4 @@
-import {
-  StatusBar,
-  useColorScheme,
-  PermissionsAndroid,
-  Platform,
-  Alert,
-} from 'react-native';
+import { StatusBar, PermissionsAndroid, Platform, Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Home from './screens/Home';
 import Login from './screens/Login';
@@ -17,7 +11,6 @@ import notifee, { EventType } from '@notifee/react-native';
 import { useUser } from './context/UserContext';
 
 function AppContent() {
-  const isDarkMode = useColorScheme() === 'dark';
   const homeRef = useRef<any>(null);
   const { user, isLoading: isLoadingUser } = useUser();
   const [hasPermissions, setHasPermissions] = useState(false);
