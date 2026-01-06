@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
 
 interface LoadingScreenProps {
   message?: string;
@@ -10,12 +9,17 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
   message = 'Loading...',
 }) => {
   return (
-    <SafeAreaProvider>
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.text}>{message}</Text>
-      </View>
-    </SafeAreaProvider>
+    <View style={styles.container}>
+      <Image
+        source={require('../public/callTrackerIconTransparent.png')}
+        style={styles.logo}
+        resizeMode="contain"
+      />
+
+      <ActivityIndicator size="large" color="#22C55E" />
+
+      <Text style={styles.text}>{message}</Text>
+    </View>
   );
 };
 
@@ -24,12 +28,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#071A2D', // 🔥 matches logo
+  },
+  logo: {
+    width: 200,
+    height: 200,
   },
   text: {
     fontSize: 16,
-    color: '#666',
+    color: '#E5E7EB', // light text on dark bg
     marginTop: 16,
   },
 });
